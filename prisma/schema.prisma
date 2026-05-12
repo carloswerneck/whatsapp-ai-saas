@@ -1,0 +1,395 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── AUTH & MULTI-TENANCY ───────────────────────────────────
+
+model Account {
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  plan             Plan     @default(FREE)
+  stripeCustomerId String?  @unique
+  trialEndsAt      DateTime?
+  subscribedAt     DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  users         User[]
+  agents        Agent[]
+  contacts      Contact[]
+  deals         Deal[]
+  documents     Document[]
+  conversations Conversation[]
+  subscriptions Subscription[]
+
+  @@map("accounts")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String?
+  image        String?
+  role         UserRole @default(MEMBER)
+  accountId    String
+  account      Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  authAccounts AuthAccount[]
+  authSessions AuthSession[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PRO
+  BUSINESS
+}
+
+// ─── NEXTAUTH MODELS ────────────────────────────────────────
+
+model AuthAccount {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("auth_accounts")
+}
+
+model AuthSession {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("auth_sessions")
+}
+
+model AuthVerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("auth_verification_tokens")
+}
+
+// ─── AGENTS ──────────────────────────────────────────────────
+
+model Agent {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  purpose     AgentPurpose
+  status      AgentStatus @default(INACTIVE)
+  accountId   String
+  account     Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  // Agent configuration
+  systemPrompt    String  @default("")
+  model           String  @default("gpt-4o")
+  temperature     Float   @default(0.7)
+  maxTokens       Int     @default(2048)
+
+  // WhatsApp connection
+  waInstanceId String?
+  waStatus     WaStatus  @default(DISCONNECTED)
+  waPhone      String?
+  waQrCode     String?
+
+  // Behavior toggles
+  autoReply      Boolean @default(true)
+  humanHandoff   Boolean @default(true)
+  handoffKeyword String  @default("humano")
+  greetingMessage String?
+  awayMessage     String?
+
+  // RAG
+  ragEnabled Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conversations Conversation[]
+  documents     Document[]
+  metrics       AgentMetric[]
+
+  @@map("agents")
+}
+
+enum AgentPurpose {
+  SCHEDULING
+  SUPPORT
+  FAQ
+  SALES
+  CUSTOM
+}
+
+enum AgentStatus {
+  ACTIVE
+  INACTIVE
+  PAUSED
+}
+
+enum WaStatus {
+  CONNECTED
+  DISCONNECTED
+  CONNECTING
+}
+
+// ─── CONVERSATIONS & MESSAGES ────────────────────────────────
+
+model Conversation {
+  id        String     @id @default(cuid())
+  agentId   String
+  agent     Agent      @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  contactId String
+  contact   Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  accountId String
+  account   Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  status     ConvStatus @default(ACTIVE)
+  assignedTo String?
+  summary    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages Message[]
+
+  @@unique([agentId, contactId])
+  @@map("conversations")
+}
+
+enum ConvStatus {
+  ACTIVE
+  HANDOFF
+  CLOSED
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  direction MsgDirection
+  sender    MsgSender
+  content   String
+  mediaUrl  String?
+  mediaType String?
+
+  // AI metadata
+  aiModel    String?
+  tokensUsed Int?
+  ragSources Json?
+
+  // WhatsApp metadata
+  waMessageId  String?
+  waTimestamp  DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@map("messages")
+}
+
+enum MsgDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MsgSender {
+  AI
+  HUMAN
+  CONTACT
+}
+
+// ─── CRM ─────────────────────────────────────────────────────
+
+model Contact {
+  id        String   @id @default(cuid())
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  name    String
+  email   String?
+  phone   String?
+  company String?
+  notes   String?
+  tags    String[]
+  source  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  interactions Interaction[]
+  deals        Deal[]
+  conversations Conversation[]
+
+  @@unique([accountId, phone])
+  @@map("contacts")
+}
+
+model Interaction {
+  id          String   @id @default(cuid())
+  type        String
+  subject     String
+  description String?
+  date        DateTime @default(now())
+  contactId   String
+  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("interactions")
+}
+
+model Deal {
+  id        String  @id @default(cuid())
+  title     String
+  value     Float?
+  stage     String  @default("lead")
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  accountId String
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("deals")
+}
+
+// ─── RAG / KNOWLEDGE ─────────────────────────────────────────
+
+model Document {
+  id        String   @id @default(cuid())
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  agentId   String?
+  agent     Agent?   @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  title    String
+  filename String
+  mimeType String
+  fileSize Int
+  storageUrl String
+
+  status     DocStatus @default(PROCESSING)
+  chunkCount Int       @default(0)
+  error      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  chunks DocumentChunk[]
+
+  @@map("documents")
+}
+
+enum DocStatus {
+  PROCESSING
+  READY
+  FAILED
+}
+
+model DocumentChunk {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  content    String
+  chunkIndex Int
+  embedding  Unsupported("vector(1536)")?
+
+  metadata Json?
+
+  @@map("document_chunks")
+}
+
+// ─── METRICS ──────────────────────────────────────────────────
+
+model AgentMetric {
+  id      String   @id @default(cuid())
+  agentId String
+  agent   Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  date DateTime @default(now())
+
+  messagesInbound    Int @default(0)
+  messagesOutbound   Int @default(0)
+  conversationsTotal Int  @default(0)
+  conversationsResolved Int @default(0)
+  avgResponseMs Int @default(0)
+  handoffs      Int @default(0)
+  tokensUsed    Int @default(0)
+
+  @@unique([agentId, date])
+  @@map("agent_metrics")
+}
+
+// ─── STRIPE ──────────────────────────────────────────────────
+
+model Subscription {
+  id                String    @id @default(cuid())
+  accountId         String
+  account           Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  stripeSubId       String    @unique
+  stripePriceId     String
+  status            SubStatus
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("subscriptions")
+}
+
+enum SubStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+}
+
+model StripeEvent {
+  id             String  @id @default(cuid())
+  stripeEventId  String  @unique
+  type           String
+  processed      Boolean @default(false)
+  payload        Json
+  createdAt      DateTime @default(now())
+
+  @@map("stripe_events")
+}
