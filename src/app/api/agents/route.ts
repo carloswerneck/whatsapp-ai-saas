@@ -4,11 +4,11 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.accountId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
   const agents = await prisma.agent.findMany({
     where: { accountId },
     orderBy: { createdAt: "desc" },
@@ -19,11 +19,11 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.accountId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
   const body = await req.json();
 
   const agent = await prisma.agent.create({

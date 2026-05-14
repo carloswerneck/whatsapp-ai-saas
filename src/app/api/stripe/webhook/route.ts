@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { stripe, PLAN_PRICES } from "@/lib/stripe";
 import { NextResponse } from "next/server";
+import type Stripe from "stripe";
+import { Prisma } from "@/generated/prisma/client";
 
 function mapPriceToPlan(priceId: string): "FREE" | "STARTER" | "PRO" | "BUSINESS" {
   if (priceId === PLAN_PRICES.STARTER) return "STARTER" as const;
@@ -13,7 +15,7 @@ export async function POST(req: Request) {
   const body = await req.text();
   const sig = req.headers.get("stripe-signature")!;
 
-  let event;
+  let event: Stripe.Event;
   try {
     event = stripe.webhooks.constructEvent(
       body,
@@ -34,27 +36,28 @@ export async function POST(req: Request) {
     data: {
       stripeEventId: event.id,
       type: event.type,
-      payload: event.data.object as any,
+      payload: event.data.object as unknown as Prisma.InputJsonValue,
     },
   });
 
-  // Using `as any` for Stripe event objects since the types vary by event type
   switch (event.type) {
     case "checkout.session.completed": {
-      const session = event.data.object as any;
-      const accountId = session.metadata?.accountId;
+      const session = event.data.object as Stripe.Checkout.Session;
+      const accountId = session.metadata?.accountId ?? "";
       const subscription = await stripe.subscriptions.retrieve(
-        session.subscription
+        session.subscription as string
       );
+
+      const subItem = subscription.items.data[0];
 
       await prisma.account.update({
         where: { id: accountId },
         data: {
-          plan: mapPriceToPlan(subscription.items.data[0].price.id as string),
+          plan: mapPriceToPlan(subItem.price.id),
           stripeCustomerId: session.customer as string,
           subscribedAt: new Date(),
-          trialEndsAt: (subscription as any).trial_end
-            ? new Date(((subscription as any).trial_end as number) * 1000)
+          trialEndsAt: subscription.trial_end
+            ? new Date(subscription.trial_end * 1000)
             : null,
         },
       });
@@ -63,27 +66,28 @@ export async function POST(req: Request) {
         data: {
           accountId,
           stripeSubId: subscription.id,
-          stripePriceId: subscription.items.data[0].price.id as string,
+          stripePriceId: subItem.price.id,
           status: subscription.status === "trialing" ? "TRIALING" : "ACTIVE",
-          currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
-          currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
+          currentPeriodStart: new Date(subItem.current_period_start * 1000),
+          currentPeriodEnd: new Date(subItem.current_period_end * 1000),
         },
       });
       break;
     }
 
     case "customer.subscription.updated": {
-      const sub = event.data.object as any;
+      const sub = event.data.object as Stripe.Subscription;
+      const subItem = sub.items.data[0];
       await prisma.subscription.update({
         where: { stripeSubId: sub.id as string },
         data: {
-          status: (sub.status as string).toUpperCase() as any,
-          currentPeriodStart: new Date(sub.current_period_start * 1000),
-          currentPeriodEnd: new Date(sub.current_period_end * 1000),
-          cancelAtPeriodEnd: sub.cancel_at_period_end as boolean,
+          status: (sub.status.toUpperCase() as "ACTIVE" | "PAST_DUE" | "CANCELED" | "TRIALING"),
+          currentPeriodStart: new Date(subItem.current_period_start * 1000),
+          currentPeriodEnd: new Date(subItem.current_period_end * 1000),
+          cancelAtPeriodEnd: sub.cancel_at_period_end,
         },
       });
-      const newPlan = mapPriceToPlan(sub.items.data[0].price.id as string);
+      const newPlan = mapPriceToPlan(sub.items.data[0].price.id);
       await prisma.account.update({
         where: { stripeCustomerId: sub.customer as string },
         data: { plan: newPlan },
@@ -92,7 +96,7 @@ export async function POST(req: Request) {
     }
 
     case "customer.subscription.deleted": {
-      const sub = event.data.object as any;
+      const sub = event.data.object as Stripe.Subscription;
       await prisma.subscription.update({
         where: { stripeSubId: sub.id as string },
         data: { status: "CANCELED" },

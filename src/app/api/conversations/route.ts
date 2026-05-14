@@ -1,19 +1,22 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
+import { ConvStatus } from "@/generated/prisma/enums";
 
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user?.accountId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
   const { searchParams } = new URL(req.url);
   const agentId = searchParams.get("agentId");
   const status = searchParams.get("status");
 
-  const where: any = { accountId };
+  const where: { accountId: string; agentId?: string; status?: ConvStatus } = { accountId };
   if (agentId) where.agentId = agentId;
-  if (status) where.status = status;
+  if (status && Object.values(ConvStatus).includes(status as ConvStatus)) {
+    where.status = status as ConvStatus;
+  }
 
   const conversations = await prisma.conversation.findMany({
     where,

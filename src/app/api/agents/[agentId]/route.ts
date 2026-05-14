@@ -10,7 +10,7 @@ export async function GET(
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { agentId } = await params;
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
 
   const agent = await prisma.agent.findFirst({
     where: { id: agentId, accountId },
@@ -32,7 +32,7 @@ export async function PATCH(
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { agentId } = await params;
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
   const body = await req.json();
 
   const agent = await prisma.agent.findFirst({ where: { id: agentId, accountId } });
@@ -68,7 +68,7 @@ export async function DELETE(
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { agentId } = await params;
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
 
   const agent = await prisma.agent.findFirst({ where: { id: agentId, accountId } });
   if (!agent) return NextResponse.json({ error: "Agent not found" }, { status: 404 });

@@ -10,7 +10,7 @@ export async function GET(
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { conversationId } = await params;
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
 
   const conversation = await prisma.conversation.findFirst({
     where: { id: conversationId, accountId },
@@ -33,7 +33,7 @@ export async function PATCH(
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { conversationId } = await params;
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
   const { status, assignedTo } = await req.json();
 
   const conversation = await prisma.conversation.findFirst({

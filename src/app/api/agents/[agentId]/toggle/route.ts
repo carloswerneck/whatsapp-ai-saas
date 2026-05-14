@@ -10,7 +10,7 @@ export async function POST(
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { agentId } = await params;
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
   const { status } = await req.json();
 
   const agent = await prisma.agent.findFirst({ where: { id: agentId, accountId } });

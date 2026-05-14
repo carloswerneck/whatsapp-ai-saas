@@ -32,7 +32,7 @@ export async function POST(
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { conversationId } = await params;
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
   const { content } = await req.json();
 
   const conversation = await prisma.conversation.findFirst({

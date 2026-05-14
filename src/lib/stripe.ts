@@ -31,13 +31,6 @@ export const stripe = new Proxy({} as Stripe, {
   },
 });
 
-function mapPriceToPlan(priceId: string): "FREE" | "STARTER" | "PRO" | "BUSINESS" {
-  if (priceId === PLAN_PRICES.STARTER) return "STARTER" as const;
-  if (priceId === PLAN_PRICES.PRO) return "PRO" as const;
-  if (priceId === PLAN_PRICES.BUSINESS) return "BUSINESS" as const;
-  return "FREE" as const;
-}
-
 export async function checkSubscription(accountId: string): Promise<{
   allowed: boolean;
   reason?: string;

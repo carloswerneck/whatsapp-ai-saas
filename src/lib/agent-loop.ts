@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { EvolutionAPI } from "@/lib/evolution-api";
 import { openai } from "@/lib/openai";
 import { performRAGRetrieval } from "@/lib/rag/retrieve";
+import type { MsgSender } from "@/generated/prisma/enums";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 interface WhatsAppMessage {
   key: {
@@ -100,7 +102,7 @@ export async function processIncomingMessage(payload: WhatsAppWebhookPayload) {
   // 7. Build AI context
   const history = conversation.messages
     .reverse()
-    .map((m: any) => ({
+    .map((m: { sender: MsgSender; content: string }) => ({
       role: m.sender === "CONTACT" ? ("user" as const) : ("assistant" as const),
       content: m.content,
     }));
@@ -112,7 +114,7 @@ export async function processIncomingMessage(payload: WhatsAppWebhookPayload) {
 
   // 8. Call OpenAI
   const startTime = Date.now();
-  const messages: any[] = [
+  const messages: ChatCompletionMessageParam[] = [
     { role: "system", content: agent.systemPrompt },
     ...(ragContext
       ? [{ role: "system" as const, content: `Knowledge base context:\n${ragContext}` }]

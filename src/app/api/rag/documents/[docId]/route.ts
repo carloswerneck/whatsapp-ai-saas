@@ -10,7 +10,7 @@ export async function DELETE(
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { docId } = await params;
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
 
   const doc = await prisma.document.findFirst({
     where: { id: docId, accountId },

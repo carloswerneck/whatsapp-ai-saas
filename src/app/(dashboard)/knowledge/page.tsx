@@ -46,14 +46,19 @@ export default function KnowledgePage() {
 
   useEffect(() => {
     if (!selectedAgent) return;
-    setLoading(true);
+    let cancelled = false;
     fetch(`/api/agents/${selectedAgent}/documents`)
       .then((res) => res.json())
       .then((data) => {
-        setDocuments(data);
-        setLoading(false);
+        if (!cancelled) {
+          setDocuments(data);
+          setLoading(false);
+        }
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [selectedAgent]);
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {

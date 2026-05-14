@@ -4,9 +4,9 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user?.accountId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
   const formData = await req.formData();
   const file = formData.get("file") as File;
   const agentId = formData.get("agentId") as string;
@@ -16,7 +16,6 @@ export async function POST(req: Request) {
   }
 
   // Upload to Supabase Storage
-  const buffer = Buffer.from(await file.arrayBuffer());
   const storagePath = `documents/${accountId}/${Date.now()}_${file.name}`;
 
   // Note: In production, upload to Supabase Storage

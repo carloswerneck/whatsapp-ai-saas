@@ -37,8 +37,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (token) {
         session.user.id = token.sub!;
-        (session.user as any).accountId = token.accountId as string;
-        (session.user as any).role = token.role as string;
+        session.user.accountId = token.accountId;
+        session.user.role = token.role ?? "MEMBER";
       }
       return session;
     },
@@ -48,8 +48,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { id: user.id },
           select: { accountId: true, role: true },
         });
-        token.accountId = dbUser?.accountId;
-        token.role = dbUser?.role;
+        token.accountId = dbUser?.accountId ?? "";
+        token.role = dbUser?.role ?? "MEMBER";
       }
       return token;
     },

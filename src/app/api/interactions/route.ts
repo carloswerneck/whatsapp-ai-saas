@@ -6,13 +6,13 @@ export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
   const { searchParams } = new URL(req.url);
   const contactId = searchParams.get("contactId");
   const type = searchParams.get("type");
 
   // Need to filter by account through contact
-  const where: any = {};
+  const where: { contactId?: string; type?: string } = {};
   if (contactId) where.contactId = contactId;
   if (type) where.type = type;
 

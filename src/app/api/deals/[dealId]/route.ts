@@ -10,7 +10,7 @@ export async function PATCH(
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { dealId } = await params;
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
   const body = await req.json();
 
   const deal = await prisma.deal.findFirst({ where: { id: dealId, accountId } });
@@ -36,7 +36,7 @@ export async function DELETE(
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { dealId } = await params;
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
 
   const deal = await prisma.deal.findFirst({ where: { id: dealId, accountId } });
   if (!deal) return NextResponse.json({ error: "Not found" }, { status: 404 });

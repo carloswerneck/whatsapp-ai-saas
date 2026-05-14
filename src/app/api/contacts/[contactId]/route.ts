@@ -10,7 +10,7 @@ export async function GET(
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { contactId } = await params;
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
 
   const contact = await prisma.contact.findFirst({
     where: { id: contactId, accountId },
@@ -36,7 +36,7 @@ export async function PATCH(
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { contactId } = await params;
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
   const body = await req.json();
 
   const contact = await prisma.contact.findFirst({ where: { id: contactId, accountId } });
@@ -65,7 +65,7 @@ export async function DELETE(
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { contactId } = await params;
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
 
   const contact = await prisma.contact.findFirst({ where: { id: contactId, accountId } });
   if (!contact) return NextResponse.json({ error: "Not found" }, { status: 404 });

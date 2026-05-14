@@ -58,8 +58,17 @@ export default function AgentDetailPage() {
   }, [agentId]);
 
   useEffect(() => {
-    fetchAgent();
-  }, [fetchAgent]);
+    let cancelled = false;
+    fetch(`/api/agents/${agentId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) {
+          setAgent(data);
+          setLoading(false);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [agentId]);
 
   async function handleConnect() {
     setConnecting(true);
@@ -194,6 +203,7 @@ export default function AgentDetailPage() {
                 <div className="space-y-4">
                   {qrCode ? (
                     <div className="flex flex-col items-center gap-4">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- data URL from QR generation */}
                       <img src={qrCode} alt="QR Code" className="w-64 h-64" />
                       <p className="text-sm text-muted-foreground">
                         Escaneie o QR code com o WhatsApp

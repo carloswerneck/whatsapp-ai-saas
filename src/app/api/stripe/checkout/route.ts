@@ -1,14 +1,14 @@
-import { stripe, PLAN_PRICES } from "@/lib/stripe";
+import { stripe } from "@/lib/stripe";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user?.accountId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { priceId } = await req.json();
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
 
   const account = await prisma.account.findUnique({ where: { id: accountId } });
   if (!account) return NextResponse.json({ error: "Account not found" }, { status: 404 });

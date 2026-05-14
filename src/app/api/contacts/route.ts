@@ -1,18 +1,19 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user?.accountId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search");
   const limit = parseInt(searchParams.get("limit") || "50");
   const offset = parseInt(searchParams.get("offset") || "0");
 
-  const where: any = { accountId };
+  const where: Prisma.ContactWhereInput = { accountId };
   if (search) {
     where.OR = [
       { name: { contains: search, mode: "insensitive" } },
@@ -39,9 +40,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user?.accountId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const accountId = (session.user as any).accountId;
+  const accountId = session.user.accountId;
   const { name, email, phone, company, notes, tags, source } = await req.json();
 
   const contact = await prisma.contact.create({

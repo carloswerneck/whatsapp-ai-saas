@@ -11,8 +11,10 @@ export async function processDocument(docId: string) {
     let text: string;
 
     if (doc.mimeType === "application/pdf") {
+      type PdfParseFn = (buffer: Buffer) => Promise<{ text: string }>;
       const pdfParseModule = await import("pdf-parse");
-      const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+      const pdfParse: PdfParseFn =
+        "default" in pdfParseModule ? (pdfParseModule.default as PdfParseFn) : (pdfParseModule as unknown as PdfParseFn);
       const response = await fetch(doc.storageUrl);
       const buffer = Buffer.from(await response.arrayBuffer());
       const parsed = await pdfParse(buffer);
