@@ -15,21 +15,16 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-# Install prisma CLI for migrations at runtime
-RUN npm install -g prisma@7
-
-# Copy standalone Next.js output
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+# Copy all installed dependencies
+COPY --from=builder /app/node_modules ./node_modules
+# Copy built app
+COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-
-# Copy Prisma files for runtime
+COPY --from=builder /app/package.json ./
+# Copy Prisma files
+COPY --from=builder /app/src/generated ./src/generated
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
-COPY --from=builder /app/src/generated ./src/generated
 
 # Entrypoint: run migrations then start server
 COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
