@@ -5,8 +5,9 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-// Use DATABASE_URL (pooled) for runtime queries
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+// Prefer DIRECT_URL (port 5432) for Supabase compatibility, fallback to DATABASE_URL
+const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL!;
+const adapter = new PrismaPg({ connectionString });
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
 
