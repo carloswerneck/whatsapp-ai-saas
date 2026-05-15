@@ -14,6 +14,7 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV NODE_OPTIONS=--dns-result-order=ipv4first
 
 # Copy all installed dependencies
 COPY --from=builder /app/node_modules ./node_modules
